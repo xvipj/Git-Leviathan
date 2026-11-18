@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { LayoutConfig } from "./layout";
 import type {
   ActionOutcome,
   AppBootstrap,
@@ -308,6 +309,10 @@ export const api = {
   terminalResize: (id: string, rows: number, cols: number) =>
     invoke<void>("terminal_resize", { id, rows, cols }),
   terminalClose: (id: string) => invoke<void>("terminal_close", { id }),
+
+  loadLayout: () => invoke<string | null>("load_layout"),
+  saveLayout: (layout: LayoutConfig) =>
+    invoke<void>("save_layout", { layout }),
 };
 
 export function errorText(error: unknown): { message: string; detail: string } {

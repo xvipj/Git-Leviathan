@@ -1,6 +1,7 @@
 pub mod branches;
 pub mod changes;
 pub mod history;
+pub mod layout;
 pub mod remote;
 pub mod repo;
 pub mod terminal;

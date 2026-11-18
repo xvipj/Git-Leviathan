@@ -72,6 +72,34 @@ fn state_path(app: &tauri::AppHandle) -> AppResult<PathBuf> {
     Ok(dir.join("leviathan-state.json"))
 }
 
+fn layout_path(app: &tauri::AppHandle) -> AppResult<PathBuf> {
+    use tauri::Manager;
+    let dir = app.path().app_data_dir().map_err(|e| {
+        crate::error::AppError::new(format!("No se pudo acceder a la carpeta de datos: {e}"))
+    })?;
+    Ok(dir.join("leviathan-layout.json"))
+}
+
+/// Devuelve el contenido crudo; la validación y los valores por defecto viven
+/// en el frontend para que un archivo corrupto nunca rompa el arranque.
+pub fn load_layout(app: &tauri::AppHandle) -> Option<String> {
+    let path = layout_path(app).ok()?;
+    std::fs::read_to_string(path).ok()
+}
+
+pub fn save_layout(app: &tauri::AppHandle, layout: &serde_json::Value) -> AppResult<()> {
+    let path = layout_path(app)?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| {
+            crate::error::AppError::new(format!("No se pudo crear la carpeta de datos: {e}"))
+        })?;
+    }
+    let raw = serde_json::to_string_pretty(layout)
+        .map_err(|e| crate::error::AppError::new(format!("Diseño no válido: {e}")))?;
+    std::fs::write(path, raw)
+        .map_err(|e| crate::error::AppError::new(format!("No se pudo guardar el diseño: {e}")))
+}
+
 pub fn load_recents(app: &tauri::AppHandle) -> Vec<String> {
     let Ok(path) = state_path(app) else {
         return Vec::new();

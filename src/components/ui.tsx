@@ -7,6 +7,7 @@ export function IconButton({
   onClick,
   disabled,
   active,
+  expanded,
   className = "",
   type = "button",
 }: {
@@ -15,6 +16,7 @@ export function IconButton({
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   active?: boolean;
+  expanded?: boolean;
   className?: string;
   type?: "button" | "submit";
 }) {
@@ -24,6 +26,7 @@ export function IconButton({
       className={`icon-button ${active ? "is-active" : ""} ${className}`}
       title={label}
       aria-label={label}
+      aria-expanded={expanded}
       onClick={onClick}
       disabled={disabled}
     >

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Archive,
   ArchiveRestore,
@@ -8,6 +8,7 @@ import {
   CloudDownload,
   FolderGit2,
   GitBranch,
+  PanelLeftClose,
   Pencil,
   Play,
   Plus,
@@ -17,7 +18,9 @@ import {
   X,
 } from "lucide-react";
 import type { Branch, Remote, Stash, Tag, Worktree } from "../lib/types";
+import type { SidebarSectionId } from "../lib/layout";
 import { relativeTime } from "../lib/format";
+import type { SectionRequest } from "../hooks/useLayout";
 import { IconButton } from "./ui";
 
 interface SidebarProps {
@@ -29,6 +32,11 @@ interface SidebarProps {
   remotes: Remote[];
   loading: boolean;
   highlightName: string | null;
+  collapsedSections: Record<SidebarSectionId, boolean>;
+  focusSection: SectionRequest | null;
+  overlay?: boolean;
+  onToggleSection: (id: SidebarSectionId) => void;
+  onCollapse: () => void;
   onHighlightBranch: (branch: Branch) => void;
   onCheckout: (branch: Branch) => void;
   onRenameBranch: (branch: Branch) => void;
@@ -52,6 +60,11 @@ export function Sidebar({
   remotes,
   loading,
   highlightName,
+  collapsedSections,
+  focusSection,
+  overlay = false,
+  onToggleSection,
+  onCollapse,
   onHighlightBranch,
   onCheckout,
   onRenameBranch,
@@ -67,6 +80,13 @@ export function Sidebar({
 }: SidebarProps) {
   const [filter, setFilter] = useState("");
   const normalized = filter.trim().toLowerCase();
+
+  useEffect(() => {
+    if (!focusSection) return;
+    const element = document.getElementById(`sidebar-section-${focusSection.id}`);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    element?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+  }, [focusSection]);
 
   const localBranches = useMemo(
     () =>
@@ -116,13 +136,26 @@ export function Sidebar({
   );
 
   return (
-    <aside className="sidebar">
+    <aside
+      className={`sidebar ${overlay ? "is-overlay" : ""}`}
+      id="sidebar-panel"
+      aria-label="Explorador de ramas"
+    >
       <div className="sidebar-top">
         <div className="sidebar-title">
           <span>Explorador</span>
-          <button className="link-button" onClick={onOpenRepos}>
-            Repos
-          </button>
+          <span className="sidebar-title-actions">
+            <button className="link-button" onClick={onOpenRepos}>
+              Repos
+            </button>
+            <IconButton
+              label="Ocultar panel izquierdo"
+              expanded
+              onClick={onCollapse}
+            >
+              <PanelLeftClose size={15} />
+            </IconButton>
+          </span>
         </div>
         <div className="search-field">
           <Search size={14} />
@@ -141,7 +174,14 @@ export function Sidebar({
       </div>
 
       <div className={`sidebar-scroll ${loading ? "is-loading" : ""}`}>
-        <Section title="Ramas locales" count={localBranches.length} icon={<GitBranch size={13} />}>
+        <Section
+          id="local"
+          title="Ramas locales"
+          count={localBranches.length}
+          icon={<GitBranch size={13} />}
+          open={!collapsedSections.local}
+          onToggle={() => onToggleSection("local")}
+        >
           {localBranches.length === 0 && <SmallEmpty>Sin ramas</SmallEmpty>}
           {localBranches.map((branch) => {
             const display = branch.name;
@@ -193,7 +233,14 @@ export function Sidebar({
           })}
         </Section>
 
-        <Section title="Ramas remotas" count={remoteBranches.length} icon={<Cloud size={13} />}>
+        <Section
+          id="remote"
+          title="Ramas remotas"
+          count={remoteBranches.length}
+          icon={<Cloud size={13} />}
+          open={!collapsedSections.remote}
+          onToggle={() => onToggleSection("remote")}
+        >
           {remoteBranches.length === 0 && <SmallEmpty>Sin ramas remotas</SmallEmpty>}
           {remoteBranches.map((branch) => {
             const display = `${branch.remote}/${branch.name}`;
@@ -227,7 +274,14 @@ export function Sidebar({
           })}
         </Section>
 
-        <Section title="Etiquetas" count={filteredTags.length} icon={<TagIcon size={13} />}>
+        <Section
+          id="tags"
+          title="Etiquetas"
+          count={filteredTags.length}
+          icon={<TagIcon size={13} />}
+          open={!collapsedSections.tags}
+          onToggle={() => onToggleSection("tags")}
+        >
           {filteredTags.length === 0 && <SmallEmpty>Sin etiquetas</SmallEmpty>}
           {filteredTags.map((tag) => (
             <div key={tag.fullName} className="side-item" title={`${tag.name}\n${tag.subject || "Sin mensaje"}`}>
@@ -251,7 +305,14 @@ export function Sidebar({
           ))}
         </Section>
 
-        <Section title="Stashes" count={filteredStashes.length} icon={<Archive size={13} />}>
+        <Section
+          id="stashes"
+          title="Stashes"
+          count={filteredStashes.length}
+          icon={<Archive size={13} />}
+          open={!collapsedSections.stashes}
+          onToggle={() => onToggleSection("stashes")}
+        >
           {filteredStashes.length === 0 && <SmallEmpty>Sin stashes</SmallEmpty>}
           {filteredStashes.map((stash) => (
             <div key={stash.selector} className="side-item" title={`${stash.selector}\n${stash.subject}`}>
@@ -285,7 +346,14 @@ export function Sidebar({
           ))}
         </Section>
 
-        <Section title="Worktrees" count={filteredWorktrees.length} icon={<FolderGit2 size={13} />}>
+        <Section
+          id="worktrees"
+          title="Worktrees"
+          count={filteredWorktrees.length}
+          icon={<FolderGit2 size={13} />}
+          open={!collapsedSections.worktrees}
+          onToggle={() => onToggleSection("worktrees")}
+        >
           {filteredWorktrees.length === 0 && <SmallEmpty>Sin worktrees</SmallEmpty>}
           {filteredWorktrees.map((worktree) => (
             <div
@@ -317,9 +385,12 @@ export function Sidebar({
         </Section>
 
         <Section
+          id="remotes"
           title="Remotos"
           count={filteredRemotes.length}
           icon={<CloudDownload size={13} />}
+          open={!collapsedSections.remotes}
+          onToggle={() => onToggleSection("remotes")}
           action={
             <IconButton label="Agregar remoto" onClick={onAddRemote} className="mini">
               <Plus size={12} />
@@ -359,23 +430,33 @@ export function Sidebar({
 }
 
 function Section({
+  id,
   title,
   count,
   icon,
   children,
   action,
+  open,
+  onToggle,
 }: {
+  id: SidebarSectionId;
   title: string;
   count: number;
   icon?: ReactNode;
   children: ReactNode;
   action?: ReactNode;
+  open: boolean;
+  onToggle: () => void;
 }) {
-  const [open, setOpen] = useState(true);
   return (
-    <div className="side-section">
+    <div className="side-section" id={`sidebar-section-${id}`}>
       <div className="side-section-header">
-        <button className="side-section-toggle" onClick={() => setOpen((value) => !value)}>
+        <button
+          className="side-section-toggle"
+          onClick={onToggle}
+          aria-expanded={open}
+          title={open ? `Contraer ${title}` : `Expandir ${title}`}
+        >
           {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
           {icon}
           <span>{title}</span>

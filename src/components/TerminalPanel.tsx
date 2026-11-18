@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { Plus, X, TerminalSquare, GripHorizontal } from "lucide-react";
+import { Plus, X, TerminalSquare, PanelBottomClose } from "lucide-react";
+import { MIN_TERMINAL_HEIGHT } from "../lib/layout";
 import { api } from "../lib/api";
 import { IconButton } from "./ui";
+import { ResizableDivider } from "./ResizableDivider";
 
 interface TerminalTab {
   id: string;
@@ -13,14 +15,27 @@ interface TerminalTab {
 
 interface TerminalPanelProps {
   open: boolean;
+  height: number;
+  maxHeight: number;
   repoPath: string | null;
+  onHeightPreview?: (height: number) => void;
+  onHeightChange: (height: number) => void;
+  onResetHeight: () => void;
   onClose: () => void;
 }
 
-export function TerminalPanel({ open, repoPath, onClose }: TerminalPanelProps) {
+export function TerminalPanel({
+  open,
+  height,
+  maxHeight,
+  repoPath,
+  onHeightPreview,
+  onHeightChange,
+  onResetHeight,
+  onClose,
+}: TerminalPanelProps) {
   const [tabs, setTabs] = useState<TerminalTab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [height, setHeight] = useState(290);
   const autoCreated = useRef(false);
 
   const createTab = () => {
@@ -46,7 +61,7 @@ export function TerminalPanel({ open, repoPath, onClose }: TerminalPanelProps) {
     if (!open || !repoPath) return;
     const fit = () => window.dispatchEvent(new Event("leviathan:terminal-fit"));
     fit();
-  }, [open, activeId]);
+  }, [open, activeId, height]);
 
   const closeTab = (id: string) => {
     setTabs((current) => {
@@ -59,29 +74,29 @@ export function TerminalPanel({ open, repoPath, onClose }: TerminalPanelProps) {
     api.terminalClose(id).catch(() => undefined);
   };
 
-  const startResize = (event: React.PointerEvent) => {
-    event.preventDefault();
-    const startY = event.clientY;
-    const startHeight = height;
-    const onMove = (moveEvent: PointerEvent) => {
-      const next = Math.max(140, Math.min(window.innerHeight * 0.72, startHeight + (startY - moveEvent.clientY)));
-      setHeight(next);
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
-
   if (!repoPath) return null;
 
   return (
-    <div className={`terminal-panel ${open ? "is-open" : ""}`} style={{ height: open ? height : 0 }}>
-      {open && <div className="terminal-resize" onPointerDown={startResize} title="Redimensionar terminal">
-        <GripHorizontal size={14} />
-      </div>}
+    <div
+      className={`terminal-panel ${open ? "is-open" : ""}`}
+      id="terminal-panel"
+      aria-hidden={!open}
+      inert={!open}
+    >
+      {open && (
+        <ResizableDivider
+          side="bottom"
+          value={height}
+          min={MIN_TERMINAL_HEIGHT}
+          max={maxHeight}
+          label="Redimensionar terminal"
+          controls="terminal-panel"
+          onPreview={onHeightPreview}
+          onResize={onHeightChange}
+          onToggle={onClose}
+          onReset={onResetHeight}
+        />
+      )}
       <div className="terminal-tabs">
         <div className="terminal-tab-list">
           {tabs.map((tab) => (
@@ -103,8 +118,8 @@ export function TerminalPanel({ open, repoPath, onClose }: TerminalPanelProps) {
           <span className="terminal-cwd" title={repoPath}>
             {repoPath}
           </span>
-          <IconButton label="Cerrar panel de terminal" onClick={onClose}>
-            <X size={14} />
+          <IconButton label="Ocultar terminal" expanded onClick={onClose}>
+            <PanelBottomClose size={14} />
           </IconButton>
         </div>
       </div>

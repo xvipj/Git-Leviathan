@@ -1,13 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   AlertTriangle,
+  Archive,
   Check,
+  Cloud,
   CloudDownload,
+  FolderGit2,
   FolderOpen,
   GitBranch,
+  GitCommit,
   Loader2,
   Plus,
+  Tag as TagIcon,
   User,
 } from "lucide-react";
 
@@ -40,6 +45,19 @@ import { Sidebar } from "./components/Sidebar";
 import { GraphView, type ScrollTarget } from "./components/GraphView";
 import { RightPanel, type DiffMode } from "./components/RightPanel";
 import { TerminalPanel } from "./components/TerminalPanel";
+import { ResizableDivider } from "./components/ResizableDivider";
+import { PanelRail, type RailItem } from "./components/PanelRail";
+import { ShortcutsDialog } from "./components/ShortcutsDialog";
+import {
+  DEFAULT_LEFT_WIDTH,
+  DEFAULT_RIGHT_WIDTH,
+  DEFAULT_TERMINAL_HEIGHT,
+  MIN_SIDE_WIDTH,
+  isEditableTarget,
+  matchesShortcut,
+  type SidebarSectionId,
+} from "./lib/layout";
+import { useLayout } from "./hooks/useLayout";
 import {
   ConfirmDialog,
   ErrorDialog,
@@ -185,7 +203,8 @@ export default function App() {
   const [error, setError] = useState<LastError | null>(null);
   const [operation, setOperation] = useState<OperationState | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const [terminalOpen, setTerminalOpen] = useState(false);
+  const layout = useLayout();
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [blameDialog, setBlameDialog] = useState<BlameDialogState | null>(null);
   const [fileHistory, setFileHistory] = useState<FileHistoryState | null>(null);
@@ -305,14 +324,49 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.ctrlKey && !event.altKey && event.key === "`") {
+      if (event.ctrlKey && !event.altKey && !event.shiftKey && event.key === "`") {
         event.preventDefault();
-        if (activePathRef.current) setTerminalOpen((value) => !value);
+        if (activePathRef.current) layout.toggleTerminal();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [layout.toggleTerminal]);
+
+  useEffect(() => {
+    const { shortcuts } = layout.layout;
+    const { toggleLeft, toggleRight, toggleTerminal, toggleFocusMode } = layout;
+    const onKey = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) return;
+      if (matchesShortcut(event, shortcuts.toggleLeft)) {
+        event.preventDefault();
+        toggleLeft();
+        return;
+      }
+      if (matchesShortcut(event, shortcuts.toggleRight)) {
+        event.preventDefault();
+        toggleRight();
+        return;
+      }
+      if (matchesShortcut(event, shortcuts.toggleTerminal)) {
+        event.preventDefault();
+        if (activePathRef.current) toggleTerminal();
+        return;
+      }
+      if (matchesShortcut(event, shortcuts.toggleFocus)) {
+        event.preventDefault();
+        toggleFocusMode();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    layout.layout.shortcuts,
+    layout.toggleLeft,
+    layout.toggleRight,
+    layout.toggleTerminal,
+    layout.toggleFocusMode,
+  ]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -437,7 +491,7 @@ export default function App() {
     setHighlightName(null);
     setScrollTarget(null);
     resetSelection();
-    setTerminalOpen(false);
+    if (!layout.layout.terminal.collapsed) layout.toggleTerminal();
   }
 
   async function activateRepo(state: RepoState) {
@@ -1846,8 +1900,115 @@ export default function App() {
 
   const missingGit = boot !== null && !boot.git.available;
 
+  const sidebarProps = {
+    repoPath: activePath ?? "",
+    branches,
+    tags,
+    stashes,
+    worktrees,
+    remotes,
+    loading: repoLoading,
+    highlightName,
+    collapsedSections: layout.layout.left.sections,
+    focusSection: layout.sectionRequest,
+    onToggleSection: layout.toggleSection,
+    onCollapse: layout.toggleLeft,
+    onHighlightBranch: (branch: Branch) =>
+      setHighlightName(
+        branch.isRemote ? `${branch.remote ?? ""}/${branch.name}` : branch.name,
+      ),
+    onCheckout: (branch: Branch) => void checkoutBranch(branch),
+    onRenameBranch: (branch: Branch) => setDialog({ type: "rename-branch", branch }),
+    onDeleteBranch: (branch: Branch) => setDialog({ type: "delete-branch", branch }),
+    onDeleteTag: (tag: Tag) => setDialog({ type: "delete-tag", tag }),
+    onApplyStash: (stash: Stash, pop: boolean) => void applyStash(stash, pop),
+    onDropStash: (stash: Stash) => setDialog({ type: "drop-stash", stash }),
+    onOpenWorktree: (worktree: Worktree) => void openRepo(worktree.path),
+    onAddRemote: () => setDialog({ type: "add-remote" }),
+    onRemoveRemote: (remote: Remote) => setDialog({ type: "remove-remote", remote }),
+    onFetchRemote: (remote: Remote) => void handleFetch(remote.name),
+    onOpenRepos: () => setDialog({ type: "repo", tab: "open" }),
+  };
+
+  const rightPanelProps =
+    info && status
+      ? {
+          repo: info,
+          status,
+          wipSelected,
+          details,
+          detailsLoading,
+          selectedFile,
+          diff,
+          diffLoading,
+          diffMode,
+          conflict,
+          conflictLoading,
+          summary,
+          description,
+          amend,
+          sign,
+          committing,
+          onSelectCommitFile: (file: FileEntry) => {
+            const path = activePathRef.current;
+            if (path && selectedHashRef.current) {
+              void loadCommitFile(
+                path,
+                selectedHashRef.current,
+                file.path,
+                file.oldPath ?? null,
+                file.status,
+              );
+            }
+          },
+          onSelectWipFile: (file: FileStatus, staged: boolean) =>
+            void openWipFile(file, staged),
+          onApplyPatch: applyPatch,
+          onStage: (paths: string[]) => void stagePaths(paths),
+          onUnstage: (paths: string[]) => void unstagePaths(paths),
+          onStageAll: () => void stageAll(),
+          onUnstageAll: () => void unstageAll(),
+          onDiscard: (file: FileStatus) => setDialog({ type: "discard-file", file }),
+          onDiscardAll: () => setDialog({ type: "discard-all" }),
+          onCommit: () => void commitChanges(),
+          onAbortOperation: (value: "merge" | "rebase" | "cherry-pick" | "revert") =>
+            void abortOperation(value),
+          onShowConflict: (file: FileStatus) => void openWipFile(file, false),
+          onResolveSide: (file: FileStatus, side: "ours" | "theirs") =>
+            void resolveSide(file, side),
+          onMarkResolved: (file: FileStatus) => void markResolved(file),
+          onBlame: (path: string) => void openBlame(path),
+          onHistory: (path: string) => void openFileHistory(path),
+          onSummaryChange: setSummary,
+          onDescriptionChange: setDescription,
+          onAmendChange: setAmend,
+          onSignChange: setSign,
+          onCopy: (text: string) => void copyText(text),
+          onBackToChanges: () => undefined,
+          onCollapse: layout.toggleRight,
+        }
+      : null;
+
+  const leftRailItems: RailItem[] = [
+    { id: "local", label: "Ramas locales", icon: <GitBranch size={16} /> },
+    { id: "remote", label: "Ramas remotas", icon: <Cloud size={16} /> },
+    { id: "tags", label: "Etiquetas", icon: <TagIcon size={16} /> },
+    { id: "stashes", label: "Stashes", icon: <Archive size={16} /> },
+    { id: "worktrees", label: "Worktrees", icon: <FolderGit2 size={16} /> },
+    { id: "remotes", label: "Remotos", icon: <CloudDownload size={16} /> },
+  ];
+  const rightRailItems: RailItem[] = [
+    { id: "commit", label: "Detalle del commit", icon: <GitCommit size={16} /> },
+  ];
+
+  const appStyle = {
+    "--left-width": `${layout.leftWidth}px`,
+    "--right-width": `${layout.rightWidth}px`,
+    "--terminal-height": `${layout.terminalHeight}px`,
+  } as CSSProperties;
+
   return (
-    <div className="app">
+    <div className={`app ${layout.focusMode ? "is-focus" : ""}`} style={appStyle}>
       <TopBar
         repos={repos}
         activePath={activePath}
@@ -1866,8 +2027,29 @@ export default function App() {
         onBranchAction={handleBranchAction}
         onStashAction={handleStashAction}
         onPop={() => handleStashAction("pop-latest")}
-        onToggleTerminal={() => setTerminalOpen((value) => !value)}
-        terminalOpen={terminalOpen}
+        onToggleTerminal={layout.toggleTerminal}
+        terminalOpen={layout.terminalVisible && hasRepo}
+        leftOpen={
+          layout.focusMode
+            ? false
+            : layout.compact
+              ? layout.overlayLeft
+              : !layout.layout.left.collapsed
+        }
+        rightOpen={
+          layout.focusMode
+            ? false
+            : layout.compact
+              ? layout.overlayRight
+              : !layout.layout.right.collapsed
+        }
+        focusMode={layout.focusMode}
+        shortcuts={layout.layout.shortcuts}
+        onToggleLeft={layout.toggleLeft}
+        onToggleRight={layout.toggleRight}
+        onToggleFocusMode={layout.toggleFocusMode}
+        onResetLayout={layout.resetLayout}
+        onOpenShortcuts={() => setShowShortcuts(true)}
         theme={theme}
         onToggleTheme={() => setTheme((value) => (value === "dark" ? "light" : "dark"))}
         hasRepo={hasRepo}
@@ -1911,32 +2093,41 @@ export default function App() {
                 <Loader2 size={18} className="spin" /> Abriendo repositorio…
               </div>
             )}
-            <Sidebar
-              repoPath={activePath ?? ""}
-              branches={branches}
-              tags={tags}
-              stashes={stashes}
-              worktrees={worktrees}
-              remotes={remotes}
-              loading={repoLoading}
-              highlightName={highlightName}
-              onHighlightBranch={(branch) =>
-                setHighlightName(
-                  branch.isRemote ? `${branch.remote ?? ""}/${branch.name}` : branch.name,
-                )
-              }
-              onCheckout={(branch) => void checkoutBranch(branch)}
-              onRenameBranch={(branch) => setDialog({ type: "rename-branch", branch })}
-              onDeleteBranch={(branch) => setDialog({ type: "delete-branch", branch })}
-              onDeleteTag={(tag) => setDialog({ type: "delete-tag", tag })}
-              onApplyStash={(stash, pop) => void applyStash(stash, pop)}
-              onDropStash={(stash) => setDialog({ type: "drop-stash", stash })}
-              onOpenWorktree={(worktree) => void openRepo(worktree.path)}
-              onAddRemote={() => setDialog({ type: "add-remote" })}
-              onRemoveRemote={(remote) => setDialog({ type: "remove-remote", remote })}
-              onFetchRemote={(remote) => void handleFetch(remote.name)}
-              onOpenRepos={() => setDialog({ type: "repo", tab: "open" })}
-            />
+
+            {!layout.compact && !layout.focusMode && (
+              <div
+                className={`side-slot left ${layout.layout.left.collapsed ? "is-collapsed" : ""}`}
+                aria-hidden={layout.layout.left.collapsed}
+                inert={layout.layout.left.collapsed}
+              >
+                <Sidebar {...sidebarProps} />
+                {!layout.layout.left.collapsed && (
+                  <ResizableDivider
+                    side="left"
+                    value={layout.leftWidth}
+                    min={MIN_SIDE_WIDTH}
+                    max={layout.maxLeft}
+                    label="Redimensionar panel izquierdo"
+                    controls="sidebar-panel"
+                    onPreview={(width) => layout.previewSideWidth("left", width)}
+                    onResize={(width) => layout.commitSideWidth("left", width)}
+                    onToggle={layout.toggleLeft}
+                    onReset={() => layout.commitSideWidth("left", DEFAULT_LEFT_WIDTH)}
+                  />
+                )}
+              </div>
+            )}
+
+            {!layout.focusMode && !layout.leftVisible && !layout.overlayLeft && (
+              <PanelRail
+                side="left"
+                label="Panel izquierdo"
+                items={leftRailItems}
+                visible
+                onExpand={layout.toggleLeft}
+                onOpen={(id) => layout.openLeftSection(id as SidebarSectionId)}
+              />
+            )}
 
             <GraphView
               commits={commits}
@@ -1965,72 +2156,94 @@ export default function App() {
               onContextMenu={openCommitContext}
             />
 
-            {info && status && (
-              <RightPanel
-                repo={info}
-                status={status}
-                wipSelected={wipSelected}
-                details={details}
-                detailsLoading={detailsLoading}
-                selectedFile={selectedFile}
-                diff={diff}
-                diffLoading={diffLoading}
-                diffMode={diffMode}
-                conflict={conflict}
-                conflictLoading={conflictLoading}
-                summary={summary}
-                description={description}
-                amend={amend}
-                sign={sign}
-                committing={committing}
-                onSelectCommitFile={(file) => {
-                  const path = activePathRef.current;
-                  if (path && selectedHashRef.current) {
-                    void loadCommitFile(
-                      path,
-                      selectedHashRef.current,
-                      file.path,
-                      file.oldPath ?? null,
-                      file.status,
-                    );
-                  }
-                }}
-                onSelectWipFile={(file, staged) => void openWipFile(file, staged)}
-                onApplyPatch={applyPatch}
-                onStage={(paths) => void stagePaths(paths)}
-                onUnstage={(paths) => void unstagePaths(paths)}
-                onStageAll={() => void stageAll()}
-                onUnstageAll={() => void unstageAll()}
-                onDiscard={(file) => setDialog({ type: "discard-file", file })}
-                onDiscardAll={() => setDialog({ type: "discard-all" })}
-                onCommit={() => void commitChanges()}
-                onAbortOperation={(value) => void abortOperation(value)}
-                onShowConflict={(file) => void openWipFile(file, false)}
-                onResolveSide={(file, side) => void resolveSide(file, side)}
-                onMarkResolved={(file) => void markResolved(file)}
-                onBlame={(path) => void openBlame(path)}
-                onHistory={(path) => void openFileHistory(path)}
-                onSummaryChange={setSummary}
-                onDescriptionChange={setDescription}
-                onAmendChange={setAmend}
-                onSignChange={setSign}
-                onCopy={(text) => void copyText(text)}
-                onBackToChanges={() => undefined}
+            {!layout.compact && !layout.focusMode && rightPanelProps && (
+              <div
+                className={`side-slot right ${layout.layout.right.collapsed ? "is-collapsed" : ""}`}
+                aria-hidden={layout.layout.right.collapsed}
+                inert={layout.layout.right.collapsed}
+              >
+                {!layout.layout.right.collapsed && (
+                  <ResizableDivider
+                    side="right"
+                    value={layout.rightWidth}
+                    min={MIN_SIDE_WIDTH}
+                    max={layout.maxRight}
+                    label="Redimensionar panel derecho"
+                    controls="right-panel"
+                    onPreview={(width) => layout.previewSideWidth("right", width)}
+                    onResize={(width) => layout.commitSideWidth("right", width)}
+                    onToggle={layout.toggleRight}
+                    onReset={() => layout.commitSideWidth("right", DEFAULT_RIGHT_WIDTH)}
+                  />
+                )}
+                <RightPanel {...rightPanelProps} />
+              </div>
+            )}
+
+            {!layout.focusMode && !layout.rightVisible && !layout.overlayRight && (
+              <PanelRail
+                side="right"
+                label="Panel derecho"
+                items={rightRailItems}
+                visible
+                onExpand={layout.toggleRight}
+                onOpen={() => layout.openRightPanel()}
               />
+            )}
+
+            {layout.overlayLeft && (
+              <div className="panel-overlay-backdrop" onMouseDown={layout.closeOverlays}>
+                <div
+                  className="panel-overlay left"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Explorador de ramas"
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
+                  <Sidebar {...sidebarProps} overlay />
+                </div>
+              </div>
+            )}
+
+            {layout.overlayRight && rightPanelProps && (
+              <div className="panel-overlay-backdrop" onMouseDown={layout.closeOverlays}>
+                <div
+                  className="panel-overlay right"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Detalle del commit"
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
+                  <RightPanel {...rightPanelProps} overlay />
+                </div>
+              </div>
             )}
           </>
         )}
       </main>
 
       <TerminalPanel
-        open={terminalOpen && hasRepo}
+        open={layout.terminalVisible && hasRepo}
+        height={layout.terminalHeight}
+        maxHeight={layout.maxTerminal}
         repoPath={activePath}
-        onClose={() => setTerminalOpen(false)}
+        onHeightPreview={layout.previewTerminalHeight}
+        onHeightChange={layout.commitTerminalHeight}
+        onResetHeight={() => layout.commitTerminalHeight(DEFAULT_TERMINAL_HEIGHT)}
+        onClose={layout.toggleTerminal}
       />
 
       <StatusBar info={info} status={status} loading={repoLoading} />
 
       {renderDialog()}
+
+      {showShortcuts && (
+        <ShortcutsDialog
+          shortcuts={layout.layout.shortcuts}
+          onSave={layout.setShortcuts}
+          onClose={() => setShowShortcuts(false)}
+        />
+      )}
 
       {operation && (
         <OperationOverlay operation={operation} onCancel={() => void cancelOperation()} />

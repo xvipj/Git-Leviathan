@@ -4,9 +4,12 @@ import {
   ArrowUpFromLine,
   Archive,
   ArchiveRestore,
+  Check,
   ChevronDown,
   CloudDownload,
+  Eye,
   GitBranch,
+  Keyboard,
   Moon,
   Plus,
   Redo2,
@@ -15,6 +18,7 @@ import {
   Undo2,
   X,
 } from "lucide-react";
+import type { ShortcutMap } from "../lib/layout";
 import type { UndoStatus } from "../lib/types";
 import { IconButton } from "./ui";
 
@@ -51,6 +55,15 @@ interface TopBarProps {
   onPop: () => void;
   onToggleTerminal: () => void;
   terminalOpen: boolean;
+  leftOpen: boolean;
+  rightOpen: boolean;
+  focusMode: boolean;
+  shortcuts: ShortcutMap;
+  onToggleLeft: () => void;
+  onToggleRight: () => void;
+  onToggleFocusMode: () => void;
+  onResetLayout: () => void;
+  onOpenShortcuts: () => void;
   theme: "dark" | "light";
   onToggleTheme: () => void;
   hasRepo: boolean;
@@ -75,6 +88,15 @@ export function TopBar({
   onPop,
   onToggleTerminal,
   terminalOpen,
+  leftOpen,
+  rightOpen,
+  focusMode,
+  shortcuts,
+  onToggleLeft,
+  onToggleRight,
+  onToggleFocusMode,
+  onResetLayout,
+  onOpenShortcuts,
   theme,
   onToggleTheme,
   hasRepo,
@@ -133,6 +155,59 @@ export function TopBar({
       </div>
 
       <div className="top-actions">
+        <div className="view-menu">
+          <button
+            className="top-menu-button"
+            onClick={() => toggle("view")}
+            aria-haspopup="menu"
+            aria-expanded={menu === "view"}
+            title="Mostrar u ocultar paneles"
+          >
+            <Eye size={15} />
+            <span>Ver</span>
+            <ChevronDown size={12} />
+          </button>
+          {menu === "view" && (
+            <Menu align="left">
+              <MenuCheckItem
+                checked={leftOpen}
+                shortcut={shortcuts.toggleLeft}
+                onClick={() => pick(onToggleLeft)}
+              >
+                Panel izquierdo
+              </MenuCheckItem>
+              <MenuCheckItem
+                checked={rightOpen}
+                shortcut={shortcuts.toggleRight}
+                onClick={() => pick(onToggleRight)}
+              >
+                Panel derecho
+              </MenuCheckItem>
+              <MenuCheckItem
+                checked={terminalOpen}
+                shortcut={shortcuts.toggleTerminal}
+                onClick={() => pick(onToggleTerminal)}
+              >
+                Terminal
+              </MenuCheckItem>
+              <MenuSeparator />
+              <MenuCheckItem
+                checked={focusMode}
+                shortcut={shortcuts.toggleFocus}
+                onClick={() => pick(onToggleFocusMode)}
+              >
+                Modo enfoque
+              </MenuCheckItem>
+              <MenuSeparator />
+              <MenuItem onClick={() => pick(onResetLayout)}>Restablecer diseño</MenuItem>
+              <MenuItem onClick={() => pick(onOpenShortcuts)}>
+                <Keyboard size={14} />
+                Configurar atajos…
+              </MenuItem>
+            </Menu>
+          )}
+        </div>
+
         <IconButton
           label={undoStatus?.undoLabel ?? "Deshacer"}
           onClick={onUndo}
@@ -275,7 +350,7 @@ export function TopBar({
         </button>
 
         <IconButton
-          label="Terminal integrada (Ctrl+`)"
+          label={`Terminal integrada (${shortcuts.toggleTerminal})`}
           onClick={onToggleTerminal}
           active={terminalOpen}
           disabled={!hasRepo}
@@ -291,8 +366,14 @@ export function TopBar({
   );
 }
 
-function Menu({ children }: { children: ReactNode }) {
-  return <div className="menu">{children}</div>;
+function Menu({
+  children,
+  align = "right",
+}: {
+  children: ReactNode;
+  align?: "left" | "right";
+}) {
+  return <div className={`menu ${align === "left" ? "align-left" : ""}`}>{children}</div>;
 }
 
 function MenuItem({
@@ -313,6 +394,33 @@ function MenuItem({
       disabled={disabled}
     >
       {children}
+    </button>
+  );
+}
+
+function MenuCheckItem({
+  children,
+  checked,
+  shortcut,
+  onClick,
+}: {
+  children: ReactNode;
+  checked: boolean;
+  shortcut?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="menu-item menu-check-item"
+      role="menuitemcheckbox"
+      aria-checked={checked}
+      onClick={onClick}
+    >
+      <span className="menu-check" aria-hidden="true">
+        {checked ? <Check size={13} /> : null}
+      </span>
+      <span>{children}</span>
+      {shortcut && <span className="menu-shortcut">{shortcut}</span>}
     </button>
   );
 }

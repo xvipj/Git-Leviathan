@@ -7,6 +7,7 @@ import {
   GitCommit,
   GitMerge,
   Loader2,
+  PanelRightClose,
   RotateCcw,
   User,
 } from "lucide-react";
@@ -64,6 +65,8 @@ interface RightPanelProps {
   onSignChange: (value: boolean) => void;
   onCopy: (text: string) => void;
   onBackToChanges: () => void;
+  onCollapse: () => void;
+  overlay?: boolean;
 }
 
 export function RightPanel(props: RightPanelProps) {
@@ -89,7 +92,20 @@ export function RightPanel(props: RightPanelProps) {
 
   if (props.wipSelected) {
     return (
-      <aside className="right-panel">
+      <aside
+        className={`right-panel ${props.overlay ? "is-overlay" : ""}`}
+        id="right-panel"
+        aria-label="Detalle de cambios"
+      >
+        <button
+          className="panel-collapse-button"
+          onClick={props.onCollapse}
+          aria-label="Ocultar panel derecho"
+          aria-expanded
+          title="Ocultar panel derecho"
+        >
+          <PanelRightClose size={15} />
+        </button>
         <WipHeader {...props} />
         <div className="right-tabs">
           <button className={tab === "files" ? "is-active" : ""} onClick={() => setTab("files")}>
@@ -123,7 +139,20 @@ export function RightPanel(props: RightPanelProps) {
   }
 
   return (
-    <aside className="right-panel">
+    <aside
+      className={`right-panel ${props.overlay ? "is-overlay" : ""}`}
+      id="right-panel"
+      aria-label="Detalle del commit"
+    >
+      <button
+        className="panel-collapse-button"
+        onClick={props.onCollapse}
+        aria-label="Ocultar panel derecho"
+        aria-expanded
+        title="Ocultar panel derecho"
+      >
+        <PanelRightClose size={15} />
+      </button>
       <CommitHeader details={props.details} loading={props.detailsLoading} onCopy={props.onCopy} />
       <div className="right-tabs">
         <button className={tab === "files" ? "is-active" : ""} onClick={() => setTab("files")}>

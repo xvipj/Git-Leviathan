@@ -82,6 +82,8 @@ pub fn run() {
             commands::terminal::terminal_write,
             commands::terminal::terminal_resize,
             commands::terminal::terminal_close,
+            commands::layout::load_layout,
+            commands::layout::save_layout,
         ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar Git Leviathan");

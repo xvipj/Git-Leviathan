@@ -8,6 +8,7 @@ The default branch is `master`.
 - `npm install` once, then `npm run tauri dev` for the desktop app (Vite is fixed to port 1420).
 - `npm run build` is the frontend check (`tsc -b && vite build`). There is no ESLint/Prettier script.
 - `npm test` runs the Rust suite via `cargo test --manifest-path src-tauri/Cargo.toml`.
+- `npm run test:ui` runs the frontend layout tests with Vitest.
 - Single integration test:
   `cargo test --manifest-path src-tauri/Cargo.toml --test gitops <test_name>`
 - Backend checks: `cd src-tauri && cargo check --all-targets && cargo fmt --check`.
@@ -23,6 +24,9 @@ code 1 even on success. Judge results by the final `Finished`/test summary or th
 - `src/App.tsx` orchestrates repo tabs, history paging/selection, dialogs, streaming operations,
   watcher refreshes and the status bar. UI pieces live in `src/components/`.
 - `src/lib/api.ts` contains all `invoke` wrappers; `src/lib/types.ts` mirrors the Rust models.
+  `src/lib/layout.ts` holds the pure panel/shortcut logic and `src/hooks/useLayout.ts` the
+  responsive/persistence state; `ResizableDivider`, `PanelRail` and `ShortcutsDialog` are the
+  reusable layout UI pieces.
   `src/lib/graph.ts` and `src/lib/diff.ts` hold graph layout and diff parsing.
 - Rust is split into `src-tauri/src/commands/*` (thin Tauri handlers), `src-tauri/src/gitops/*`
   (real logic), `src-tauri/src/git.rs` (system-git wrapper, path/ref validation), `models.rs`
@@ -52,7 +56,10 @@ code 1 even on success. Judge results by the final `Finished`/test summary or th
 - All user-facing text, error messages and README content are Spanish. Keep identifiers in English.
 - Styling is centralized in `src/styles.css` with CSS variables and `data-theme`; avoid adding
   separate CSS files. Theme choice is stored in the frontend under `leviathan-theme`.
-- Only recents are persisted, in the app-data file `leviathan-state.json`, via `state.rs`.
+- Recents are persisted in the app-data file `leviathan-state.json`, and the global panel layout
+  (widths, collapsed panels/sections, terminal height, shortcuts) in `leviathan-layout.json`, both
+  via `state.rs`. The layout is stored as raw JSON and sanitized in the frontend so a corrupt file
+  falls back to defaults silently.
 
 ## Gotchas
 
