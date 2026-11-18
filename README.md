@@ -12,6 +12,10 @@
 Git Leviathan usa **exclusivamente el binario `git` de tu sistema**: respeta tu configuración,
 tus hooks, tus credenciales y tus flujos de trabajo. Nunca escribe configuración de Git por ti.
 
+<p align="center">
+  <img src="assets/screenshot.png" alt="Captura de Git Leviathan mostrando el grafo de commits, el explorador de ramas, el detalle del commit y la terminal integrada" width="900">
+</p>
+
 - Grafo de commits visual y fluido, incluso con repositorios grandes.
 - Staging por archivo, hunk y línea, con diff unificado o dividido y resaltado de sintaxis.
 - Ramas, remotos, tags, stashes y worktrees con filtro.
@@ -59,19 +63,19 @@ Los artefactos se crean dentro de `src-tauri/target/release/bundle/`.
 
 ## Rutas del instalador e instalación
 
-Los nombres incluyen el nombre del producto y la versión (`0.1.0` en esta entrega).
+Los nombres incluyen el nombre del producto y la versión (`0.1.1` en esta entrega).
 
 ### Windows
 
-- MSI: `src-tauri\target\release\bundle\msi\Git Leviathan_0.1.0_x64_en-US.msi`
-- NSIS: `src-tauri\target\release\bundle\nsis\Git Leviathan_0.1.0_x64-setup.exe`
+- MSI: `src-tauri\target\release\bundle\msi\Git Leviathan_0.1.1_x64_en-US.msi`
+- NSIS: `src-tauri\target\release\bundle\nsis\Git Leviathan_0.1.1_x64-setup.exe`
 
 Instala abriendo cualquiera de los dos archivos con doble clic y siguiendo el asistente.
 
 ### macOS
 
-- DMG (Apple Silicon): `src-tauri/target/release/bundle/dmg/Git Leviathan_0.1.0_aarch64.dmg`
-- DMG (Intel): `src-tauri/target/release/bundle/dmg/Git Leviathan_0.1.0_x64.dmg`
+- DMG (Apple Silicon): `src-tauri/target/release/bundle/dmg/Git Leviathan_0.1.1_aarch64.dmg`
+- DMG (Intel): `src-tauri/target/release/bundle/dmg/Git Leviathan_0.1.1_x64.dmg`
 - Aplicación: `src-tauri/target/release/bundle/macos/Git Leviathan.app`
 
 Abre el `.dmg` y arrastra **Git Leviathan** a la carpeta **Aplicaciones**. Si macOS lo bloquea
@@ -79,15 +83,15 @@ la primera vez, usa **Abrir** desde el menú contextual o Ajustes → Privacidad
 
 ### Linux
 
-- DEB: `src-tauri/target/release/bundle/deb/git-leviathan_0.1.0_amd64.deb`
-- RPM: `src-tauri/target/release/bundle/rpm/git-leviathan-0.1.0-1.x86_64.rpm`
-- AppImage: `src-tauri/target/release/bundle/appimage/git-leviathan_0.1.0_amd64.AppImage`
+- DEB: `src-tauri/target/release/bundle/deb/git-leviathan_0.1.1_amd64.deb`
+- RPM: `src-tauri/target/release/bundle/rpm/git-leviathan-0.1.1-1.x86_64.rpm`
+- AppImage: `src-tauri/target/release/bundle/appimage/git-leviathan_0.1.1_amd64.AppImage`
 
 ```bash
-sudo apt install ./src-tauri/target/release/bundle/deb/git-leviathan_0.1.0_amd64.deb
-sudo dnf install ./src-tauri/target/release/bundle/rpm/git-leviathan-0.1.0-1.x86_64.rpm
-chmod +x ./src-tauri/target/release/bundle/appimage/git-leviathan_0.1.0_amd64.AppImage
-./src-tauri/target/release/bundle/appimage/git-leviathan_0.1.0_amd64.AppImage
+sudo apt install ./src-tauri/target/release/bundle/deb/git-leviathan_0.1.1_amd64.deb
+sudo dnf install ./src-tauri/target/release/bundle/rpm/git-leviathan-0.1.1-1.x86_64.rpm
+chmod +x ./src-tauri/target/release/bundle/appimage/git-leviathan_0.1.1_amd64.AppImage
+./src-tauri/target/release/bundle/appimage/git-leviathan_0.1.1_amd64.AppImage
 ```
 
 ## Uso rápido

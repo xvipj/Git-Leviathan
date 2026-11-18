@@ -1,6 +1,6 @@
 [package]
 name = "git-leviathan"
-version = "0.1.0"
+version = "0.1.1"
 description = "Cliente de Git de escritorio, local y sin cuentas"
 authors = ["Git Leviathan"]
 edition = "2021"
